@@ -2,6 +2,7 @@
 local M = {}
 local api = vim.api
 local editor_source
+local editor_token = 0
 local function fit_title(text, width)
   text = tostring(text):gsub("[%c]", " ")
   local count = vim.fn.strchars(text)
@@ -41,8 +42,8 @@ function M.new_runner(buf)
   return runner
 end
 
-function M.cleanup(buf)
-  if editor_source == buf then
+local function cleanup_editor(buf, expected)
+  if editor_source == buf and (not expected or expected == editor_token) then
     editor_source = nil
     for _, win in ipairs(api.nvim_list_wins()) do
       if api.nvim_win_is_valid(win) then
@@ -51,6 +52,10 @@ function M.cleanup(buf)
       end
     end
   end
+end
+
+function M.cleanup(buf)
+  cleanup_editor(buf)
   local runner = M.runners()[buf]
   if not runner then return end
   runner._cp_dead = true
@@ -59,6 +64,23 @@ function M.cleanup(buf)
   runner:kill_all_processes()
   if runner.ui then runner.ui:delete() end
   M.runners()[buf] = nil
+end
+
+function M.on_unload(buf)
+  -- An unnamed buffer can be reused for a new file before scheduled work runs.
+  -- Capture the actual old objects now, rather than looking up this number later.
+  local r = M.runners()[buf]
+  local token = editor_source == buf and editor_token or nil
+  if r then
+    r._cp_dead, r.next_tc = true, math.huge
+    r:kill_all_processes()
+    M.runners()[buf] = nil
+  end
+  if not r and not token then return end
+  vim.schedule(function()
+    if token then cleanup_editor(buf, token) end
+    if r and r.ui then r.ui:delete() end
+  end)
 end
 
 function M.eval_file(path, format)
@@ -127,6 +149,7 @@ function M.editor_widget(buf, number, input, output, callback, win)
   local cfg = M.config(buf)
   number = number ~= nil and fit_title(number, math.floor(vim.o.columns * cfg.editor_ui.popup_width) - 12) or nil
   editor_source = buf
+  editor_token = editor_token + 1
   dependency("widgets").editor(buf, number, input, output, callback, win or api.nvim_get_current_win())
 end
 

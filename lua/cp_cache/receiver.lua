@@ -312,6 +312,7 @@ local function respond(s, c, code, body)
   if c.replied or c.socket:is_closing() then return end
   c.replied = true; c.socket:read_stop(); close(c.timer)
   body = body or ""
+  if code >= 400 then vim.schedule(function() if alive(s) then report(s,"HTTP " .. code .. ": " .. body) end end) end
   local response = "HTTP/1.1 " .. code .. " " .. reasons[code] .. "\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: " .. #body .. "\r\n\r\n" .. body
   c.socket:write(response, function() disconnect(s, c) end)
 end
@@ -349,9 +350,9 @@ local function receive_bytes(s, c, chunk)
   vim.schedule(function()
     if not alive(s) or c.replied then return end
     local ok, task = pcall(vim.json.decode, c.buffer)
-    if not ok then respond(s,c,400,"invalid JSON"); report(s,"接收 JSON 解析失败"); return end
+    if not ok then respond(s,c,400,"invalid JSON"); return end
     local validated, err = M.validate(task)
-    if not validated then respond(s,c,400,err); report(s,err); return end
+    if not validated then respond(s,c,400,err); return end
     if (s.mode == "testcases" or s.mode == "problem") and validated.batch.size ~= 1 then respond(s,c,400,"use receive contest for a batch"); return end
     local accepted, why = collect(s, validated)
     if not accepted then respond(s,c,503,why); report(s,why); return end

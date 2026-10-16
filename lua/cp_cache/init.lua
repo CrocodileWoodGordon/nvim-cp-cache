@@ -236,6 +236,7 @@ end
 function M.command(args)
   local sub, arg, buf = args[1], args[2], api.nvim_get_current_buf()
   if #args > 2 then return failure("CPCache 子命令最多接受一个参数") end
+  if arg and ({find=true,info=true,forget=true,reindex=true,run=true,add=true})[sub] then return failure("CPCache " .. sub .. " 不接受参数") end
   if sub == "receive" then
     if arg == "stop" then M.stop_receive() elseif arg == "status" then M.notify(M.receive_status()) else return M.receive(arg or "testcases", buf) end
   elseif sub == "find" then return M.pick(buf)
@@ -245,7 +246,12 @@ function M.command(args)
   elseif sub == "remove" then return M.remove(buf, arg)
   elseif sub == "reindex" then local list, err, errors = state.store:list(); if not list then return failure(err) end; for _, why in ipairs(errors) do M.notify(why, vim.log.levels.WARN) end; M.notify("索引已重建: " .. #list .. " 题")
   elseif sub == "export" then return M.export(buf, arg or "files")
-  elseif sub == "unlock" then local ok, err = state.store:unlock(arg); if not ok then return failure(err) end; M.notify("已恢复死进程的锁")
+  elseif sub == "unlock" then
+    if arg == "binding" then
+      local target, err = M.capture(buf); if not target then return failure(err) end
+      arg = "binding-" .. vim.fn.sha256(target.path)
+    end
+    local ok, err = state.store:unlock(arg); if not ok then return failure(err) end; M.notify("已恢复死进程的锁")
   elseif sub == "run" then return M.run(buf)
   elseif sub == "add" then return M.add(buf)
   elseif sub == "edit" then return M.edit(buf, arg)
@@ -263,9 +269,7 @@ function M.setup(opts)
   api.nvim_create_user_command("CPCache", function(args) M.command(args.fargs) end, { nargs = "+", bar = true, force = true, complete = complete })
   local group = api.nvim_create_augroup("CPCache", { clear = true })
   api.nvim_create_autocmd("BufUnload", { group = group, callback = function(ev)
-    -- Window changes are forbidden inside BufUnload; release NUI on the main loop.
-    local buf = ev.buf
-    vim.schedule(function() adapter.cleanup(buf) end)
+    adapter.on_unload(ev.buf)
   end })
   api.nvim_create_autocmd("VimLeavePre", { group = group, callback = function()
     if package.loaded["cp_cache.receiver"] then M.stop_receive() end

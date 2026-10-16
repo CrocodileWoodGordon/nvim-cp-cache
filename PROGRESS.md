@@ -65,3 +65,13 @@
 - A18 是实际 GDB/DAP：从缓存样例 0 编译启动，main 暂停，递归断点，6 层调用栈，locals current=5/rest=0，watch current+rest=5，单步暂停，正常终止，PASS。证据 `.verify/cp-cache/reports/gdb-evidence.json`。本轮升级权限后的进程允许 ptrace，旧交接中的限制没有重复出现。
 - 环境：Neovim 0.12.6、GDB 18.1、GCC 16.2.1、Python 3.14.8、clangd 23.1.1；未下载/升级任何依赖。Rust 测试覆盖原键位，不宣称独立无 Cargo fixture 的 rust-analyzer 初始化成功。
 - 下一步：P5 超时/kill/编译失败/清理边界验收、中文 README/帮助、教程与回退，最终统一检查。
+
+## 2026-10-16：P5 边界验收（进行中）
+
+- `python3 tools/verify.py acceptance`、`python3 tools/verify.py resize`：PASS。
+- 修复首次空 buffer 复用的真实竞态：BufUnload 立即捕获旧 runner/editor 对象，终止旧进程；窗口删除安排到主循环。不能在延迟回调里仅按 buffer 编号查 runner，那可能已经属于新文件。
+- 已验证 WA、编译错误阻止旧 binary 运行、150ms 超时、Ctrl-K 不启动排队样例、Ctrl-R 重跑、源 buffer 卸载无遗留进程/UI；删除共享题目显示两份关联并确认；真实目录权限导致写入失败时原 JSON 字节不变；非 C++ 原命令仍使用其旧存储。
+- PTY 驱动真实 Neovim TUI，通过 SIGWINCH 将 runner 改到 110×38、editor 改到 100×34；窗口有效，编辑内容和保存回调保留。不是只调用 resize 方法或手动修改 options。
+- 增加 binding 死锁的显式 PID 恢复；删除缓存关联不再重新解析已被用户替换/重命名的源码路径。
+- P4 完整套件在复跑时发现测试快照只从 after 排除 `renamed.cpp`，而上次测试已创建该文件；现已同时从 before/after 排除明确创建的源码。此前功能断言与真实 GDB 均已通过，最终 full 套件待 P5 统一复跑确认。
+- 剩余：完整套件、补充接收模式覆盖、用户文档/帮助、回退和最终验收矩阵。

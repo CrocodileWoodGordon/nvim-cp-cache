@@ -124,8 +124,9 @@ end
 
 -- Never steal a lock merely because it is old. A live or unknown owner refuses recovery.
 function Store:unlock(id)
-  if not identity.valid_id(id) then return nil, "非法题目 ID" end
-  local path = self.root .. "/locks/problem-" .. id .. ".lock"
+  local binding_hash = type(id) == "string" and id:match("^binding%-(%x+)$")
+  if not identity.valid_id(id) and not (binding_hash and #binding_hash == 64 and binding_hash == binding_hash:lower()) then return nil, "非法题目 ID 或关联锁" end
+  local path = self.root .. "/locks/" .. (binding_hash and id or "problem-" .. id) .. ".lock"
   local owner, err = self:read_json(path)
   if not owner then return nil, err or "没有需要恢复的锁" end
   if not integer(owner.pid) or owner.pid < 1 then return nil, "锁的 PID 无效；请人工检查 " .. path end
@@ -268,8 +269,12 @@ function Store:remove(id, expected)
     local bindings, berr = self:bindings(id); if not bindings then return nil, berr end
     for _, b in ipairs(bindings) do
       local ok, ferr = self:locked("binding-" .. vim.fn.sha256(b.source), function()
-        local now, nerr = self:binding(b.source); if nerr then return nil, nerr end
-        if now and now.problem_id == id then return self:unlink(self.root .. "/bindings/" .. vim.fn.sha256(b.source) .. ".json") end
+        -- A source may since have been renamed or replaced by a symlink. The
+        -- cached binding key still refers to the originally recorded path.
+        local binding_path = self.root .. "/bindings/" .. vim.fn.sha256(b.source) .. ".json"
+        local now, nerr = self:read_json(binding_path); if nerr then return nil, nerr end
+        if now and (now.source ~= b.source or now.schema_version ~= 1) then return nil, "关联已变化，请重试" end
+        if now and now.problem_id == id then return self:unlink(binding_path) end
         return true
       end)
       if not ok then return nil, ferr end

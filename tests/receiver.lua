@@ -86,6 +86,11 @@ return function(h)
   assert(post(port,task("D","existing")).code == 202); vim.wait(20)
   assert(h.read(create .. "/single.cpp") == "// $(PROBLEM)\nint main(){}\n")
   a.setup_dependency({evaluate_template_modifiers=true})
+  port = start("contest",buf)
+  local directone,directtwo=task("J","direct-contest",2),task("K","direct-contest",2)
+  directone.group,directtwo.group="Codeforces - Direct Round","Codeforces - Direct Round"
+  assert(post(port,directone).code==202 and post(port,directtwo).code==202); vim.wait(20)
+  assert(s:for_source(create .. "/Direct Round/cf-1234-K.cpp").id=="cf-1234-K")
   port = start("persistently",buf)
   local one, two = task("E","round-one",2),task("F","round-one",2)
   one.group, two.group = "Codeforces - Round One", "Codeforces - Round One"
@@ -101,6 +106,12 @@ return function(h)
   vim.wait(180); assert(table.concat(messages,"\n"):find("批次超时"))
   assert(post(port,task("I","incomplete",1)).code == 202); vim.wait(20)
   assert(s:binding(path).problem_id == "cf-1234-I")
+  vim.ui.select=function(items,_,callback)
+    if items[1]=="仅样例（发起接收的源码）" then callback(items[2]) else callback(items[1]) end
+  end
+  vim.ui.input=function(_,cb) cb(create .. "/persistent.cpp") end
+  assert(post(port,task("Y","persistent-full")).code==202); vim.wait(20)
+  assert(s:for_source(create .. "/persistent.cpp").id=="cf-1234-Y")
   cp.stop_receive()
   local snap = h.snapshot(create)
   for name in pairs(snap) do assert(name:match("/+$") or name:match("%.cpp$"),"receiver created non-source: " .. name) end

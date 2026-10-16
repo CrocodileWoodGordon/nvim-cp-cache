@@ -39,6 +39,7 @@ h.finish(function()
   assert(vim.tbl_contains(vim.fn.getcompletion("CPCache receive st","cmdline"),"stop"))
   if vim.env.CP_CACHE_FULL_MODE == "gdb" then dofile(vim.env.CP_CACHE_PLUGIN .. "/tests/gdb.lua")(h,cppbuf,source); return end
   local before = h.snapshot(vim.fs.dirname(source))
+  before["renamed.cpp"] = nil
   vim.cmd("CPTest release")
   local runner = assert(a.runners()[cppbuf]); h.done(runner)
   assert(runner.tcdata[1].exit_code == 0)
@@ -63,7 +64,7 @@ h.finish(function()
   assert(s:binding(otherpath).problem_id == "cf-9000-X")
   -- Only explicitly created source files are allowed in this directory.
   local after = h.snapshot(vim.fs.dirname(source)); after["renamed.cpp"] = nil
-  assert(vim.deep_equal(before,after),"full config wrote files beside sources")
+  assert(vim.deep_equal(before,after),"full config wrote files beside sources: " .. vim.inspect({before=before,after=after}))
   dofile(vim.env.CP_CACHE_PLUGIN .. "/tests/debug_inputs.lua")(h,cppbuf,source)
   assert(vim.v.errmsg == "",vim.v.errmsg)
   print("P4 PASS: full NvChad/clangd, original CPP/Rust/DAP mappings, CPTest release/sanitize, real Telescope, compatible editor/export, no source pollution")

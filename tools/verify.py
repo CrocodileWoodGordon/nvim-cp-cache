@@ -80,7 +80,7 @@ def main():
         print("Installed reviewed NvChad changes; backup: " + str(BACKUP))
         return 0
     test_file = suite
-    if suite in ("store", "workflow", "receiver"):
+    if suite in ("store", "workflow", "receiver", "acceptance"):
         env["CP_CACHE_SUITE"] = suite
         test_file = "run"
     init = "lazy_init" if suite == "lazy_probe" else "minimal_init"
@@ -97,6 +97,8 @@ def main():
     else:
         command = ["nvim", "--headless", "-i", "NONE", "-u", str(COPY / ("tests/" + init + ".lua")),
                    "-l", str(COPY / ("tests/" + test_file + ".lua"))]
+    if suite == "resize":
+        command = ["python3", str(COPY / "tests/resize_tui.py")]
     if "--gdb" in sys.argv[2:]:
         command = ["gdb", "--batch", "-nx", "-ex", "run", "-ex", "bt", "--args", *command]
     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
