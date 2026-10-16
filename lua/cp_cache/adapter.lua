@@ -108,7 +108,13 @@ function M.run(buf, store, source, opts)
   if not next(tests) then return nil, "当前题目没有样例；请接收、添加或迁移样例" end
   M.cleanup(buf)
   local r = M.new_runner(buf)
-  local native_run, native_single, native_kill = r.run_testcases, r.run_testcase, r.kill_all_processes
+  local native_run, native_single, native_kill, native_kill_one = r.run_testcases, r.run_testcase, r.kill_all_processes, r.kill_process
+  r.kill_process = function(self, index)
+    -- A killed compiler may exit with code 0 and a nonzero signal. Upstream's
+    -- compile callback checks only code, so also stop its pending case queue.
+    if self.tcdata[index] and self.tcdata[index].tcnum == "Compile" then self.next_tc = math.huge end
+    return native_kill_one(self, index)
+  end
   r.kill_all_processes = function(self)
     self.next_tc = math.huge
     return native_kill(self)

@@ -84,3 +84,10 @@
 - 接收器补验收期间真实重命名，确认取消而非误关联；独立 Neovim 带活动监听退出后，同端口可立即重新监听。
 - `python3 tools/verify.py run`：全部 P1/P2/P3/P5 套件 PASS，覆盖 problem/contest/persistently 的完整题目和仅样例分支；批次测试超时留足调度余量。
 - 最终核心文件再次部署到配置内运行副本；真实 GDB 的最终生命周期复核也 PASS。
+
+## 2026-10-16：P5 面板边界复核
+
+- 真实进程验证停止 Compile 时也停止待运行队列：上游回调只看 exit code，信号杀死进程可能是 code=0/signal!=0，adapter 在停止编译前阻断队列，避免运行旧 binary。
+- BufFilePost 与 BufUnload 共用捕获旧对象的清理；源码改名后不保留旧路径的 runner/编辑器，重新关联通过 find 完成。
+- `python3 tools/verify.py acceptance`：PASS，包含实际编译停止、源码改名清理和既有进程边界项。
+- `python3 tools/verify.py store`：PASS，额外核对源码软链与 `..` 的组合路径，存在文件及未创建文件均与物理父目录一致。

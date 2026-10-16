@@ -22,6 +22,14 @@ return function(h)
   local parentlink = h.root .. "/fixtures/store/parent-link"
   if not vim.uv.fs_lstat(parentlink) then assert(vim.uv.fs_symlink(vim.fs.dirname(c), parentlink)) end
   assert(I.source(parentlink .. "/new.cpp") == vim.fs.dirname(c) .. "/new.cpp")
+  local physical=h.root .. "/fixtures/store/physical-" .. vim.uv.hrtime()
+  h.write(physical .. "/target/answer.cpp","int main(){}\n")
+  h.write(physical .. "/target/child/keep.cpp","int main(){}\n")
+  h.write(physical .. "/alias-parent/answer.cpp","int main(){return 1;}\n")
+  assert(vim.uv.fs_symlink(physical .. "/target/child",physical .. "/alias-parent/link"))
+  local indirect=physical .. "/alias-parent/link/../answer.cpp"
+  assert(I.source(indirect)==vim.uv.fs_realpath(indirect),"realpath must resolve symlinks before ..")
+  assert(I.source(physical .. "/alias-parent/link/../new.cpp")==physical .. "/target/new.cpp")
   local p = assert(s:save({ id = id, name = "中文 A", tests = {
     { id = 0, input = "中文\r\n\n", output = "", origin = "manual" },
     { id = 2, input = "", origin = "received" },

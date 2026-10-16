@@ -268,7 +268,7 @@ function M.setup(opts)
   if not installed then return failure(tostring(why)) end
   api.nvim_create_user_command("CPCache", function(args) M.command(args.fargs) end, { nargs = "+", bar = true, force = true, complete = complete })
   local group = api.nvim_create_augroup("CPCache", { clear = true })
-  api.nvim_create_autocmd("BufUnload", { group = group, callback = function(ev)
+  api.nvim_create_autocmd({"BufUnload", "BufFilePost"}, { group = group, callback = function(ev)
     adapter.on_unload(ev.buf)
   end })
   api.nvim_create_autocmd("VimLeavePre", { group = group, callback = function()
