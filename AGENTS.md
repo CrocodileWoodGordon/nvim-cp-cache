@@ -8,6 +8,11 @@
 
 ## 写入边界
 
+2026-10-16 用户后续指示：插件开发、文档和 Git 提交在当前仓库
+`/home/gordon/Coding/nvim-cp-cache/` 进行；测试可复制到
+`/home/gordon/.config/nvim/`。此指示覆盖下面原任务包的开发位置限制。
+运行 fixture、构建产物、隔离 XDG 目录和配置备份仍留在配置目录。
+
 1. 实现、配置接入、测试、日志、下载、构建产物、备份只能写入 `/home/gordon/.config/nvim/`。
 2. AGENTS、设计、计划、交接、进度文档可以写入 `/tmp/nvim-cp-cache/`。这是用户明确指定的文档例外。
 3. 不修改 `.local/share/nvim`、`.cache/nvim`、`.local/state/nvim`、shell、系统或浏览器配置；不运行全量插件升级或系统包安装。
