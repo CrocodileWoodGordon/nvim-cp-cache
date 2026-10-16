@@ -208,7 +208,9 @@ function M.dispatch(args, buf)
     if args[2] == "stop" then M.stop_receive() else M.notify(M.receive_status()) end
     return true
   end
-  if not M.capture(buf) then return false end
+  if vim.bo[buf].filetype ~= "cpp" then return false end
+  local target, source_error = M.capture(buf)
+  if not target then failure(source_error); return true end
   local counts = { add_testcase={1,1}, edit_testcase={1,2}, delete_testcase={1,2}, show_ui={1,1}, receive={2,2}, convert={2,2} }
   local count = counts[sub]
   if count and (#args < count[1] or #args > count[2]) then failure("CompetiTest " .. sub .. " 参数数量错误"); return true end

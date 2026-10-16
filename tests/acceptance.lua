@@ -79,5 +79,18 @@ return function(h)
   h.map(vim.fn.bufnr("CompetiTestEditInput"),"<C-s>")
   assert(h.read(vim.fs.dirname(py) .. "/testcases/main.0.in") == "input")
   assert(not s:binding(py))
+  local original_cwd=vim.fn.getcwd()
+  local unnamed_dir=h.root .. "/fixtures/acceptance/unnamed-" .. vim.uv.hrtime()
+  vim.fn.mkdir(unnamed_dir,"p"); vim.api.nvim_set_current_dir(unnamed_dir)
+  local unnamed=vim.api.nvim_create_buf(true,false)
+  vim.api.nvim_set_current_buf(unnamed); vim.bo.filetype="cpp"
+  local original_notify=vim.notify
+  local rejected
+  vim.notify=function(message) rejected=message end
+  local clean=h.snapshot(unnamed_dir)
+  vim.cmd("CompetiTest add_testcase")
+  assert(rejected and rejected:find("路径"))
+  assert(vim.fn.bufwinid("CompetiTestEditInput")==-1 and vim.deep_equal(clean,h.snapshot(unnamed_dir)),"unnamed CPP fell through to legacy storage")
+  vim.notify=original_notify; vim.api.nvim_set_current_dir(original_cwd)
   print("P5 EDGES PASS: WA, compile failure blocks stale binary, timeout/kill/queue/unload cleanup, confirmed shared removal, real I/O failure, binding lock recovery and non-CPP fallback")
 end
