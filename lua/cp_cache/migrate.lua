@@ -11,6 +11,7 @@ function M.read(path)
   local data, why = uv.fs_read(fd, stat.size, 0)
   local ok, cerr = uv.fs_close(fd)
   if not data or not ok then return nil, "读取/关闭失败 " .. path .. ": " .. tostring(why or cerr) end
+  if #data ~= stat.size then return nil, "读取时文件长度变化，请重试: " .. path end
   return data
 end
 

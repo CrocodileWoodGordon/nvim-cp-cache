@@ -1,7 +1,7 @@
 return function(h)
   local cp, receiver, a = require("cp_cache"), require("cp_cache.receiver"), require("cp_cache.adapter")
   local root = h.root .. "/store/http-" .. vim.uv.hrtime()
-  assert(cp.setup({cache_root=root, port=0, batch_timeout_ms=120, idle_timeout_ms=120}))
+  assert(cp.setup({cache_root=root, port=0, batch_timeout_ms=500, idle_timeout_ms=120}))
   local s = assert(cp.store())
   local oldnotify, oldselect, oldinput = vim.notify, vim.ui.select, vim.ui.input
   local messages = {}
@@ -63,6 +63,12 @@ return function(h)
   occupied = vim.uv.new_tcp(); assert(occupied:bind("127.0.0.1",0)); assert(occupied:listen(1,function() end))
   assert(cp.setup({port=occupied:getsockname().port})); assert(not cp.receive("testcases",buf))
   occupied:close(); assert(cp.setup({port=0}))
+  port=start("testcases",buf)
+  local renamed=path .. ".renamed.cpp"
+  assert(vim.uv.fs_rename(path,renamed)); vim.api.nvim_buf_set_name(buf,renamed)
+  assert(post(port,task("C","renamed")).code==202); vim.wait(20)
+  assert(not s:binding(renamed) and not s:get("cf-1234-C"))
+  assert(vim.uv.fs_rename(renamed,path)); vim.api.nvim_buf_set_name(buf,path)
   vim.wait(20); port = start("testcases", other)
   vim.api.nvim_set_current_buf(other); vim.api.nvim_buf_delete(other,{force=true}); vim.wait(20)
   assert(post(port,task("C","closed")).code == 202); vim.wait(20)
@@ -103,7 +109,7 @@ return function(h)
   assert(s:for_source(create .. "/Round Two/cf-1234-H.cpp").id == "cf-1234-H")
   assert(h.read(create .. "/Round One/cf-1234-E.cpp") == "// E. 中文题\nint main(){}\n")
   assert(post(port,task("I","incomplete",2)).code == 202)
-  vim.wait(180); assert(table.concat(messages,"\n"):find("批次超时"))
+  vim.wait(650); assert(table.concat(messages,"\n"):find("批次超时"))
   assert(post(port,task("I","incomplete",1)).code == 202); vim.wait(20)
   assert(s:binding(path).problem_id == "cf-1234-I")
   vim.ui.select=function(items,_,callback)
@@ -120,6 +126,13 @@ return function(h)
   vim.ui.input = function(_,cb) pending=cb end
   port = start("problem",buf); assert(post(port,task("Z","pending")).code == 202); vim.wait(20); assert(pending)
   cp.stop_receive(); pending(create .. "/should-not-exist.cpp"); assert(not vim.uv.fs_stat(create .. "/should-not-exist.cpp"))
+  local exit_report=h.root .. "/reports/socket-exit-" .. vim.uv.hrtime() .. ".json"
+  local result=vim.system({"nvim","--headless","-i","NONE","-u",vim.env.CP_CACHE_PLUGIN .. "/tests/minimal_init.lua","-l",vim.env.CP_CACHE_PLUGIN .. "/tests/socket_exit.lua"},
+    {env={CP_CACHE_EXIT_REPORT=exit_report}}):wait(10000)
+  assert(result.code==0,result.stderr)
+  local released=vim.uv.new_tcp()
+  assert(released:bind("127.0.0.1",vim.json.decode(h.read(exit_report)).port))
+  assert(released:listen(1,function() end)); released:close()
   vim.notify,vim.ui.select,vim.ui.input = oldnotify,oldselect,oldinput
   print("P3 PASS: actual fragmented HTTP, CORS/errors/limits/timeouts, captured buffer, duplicate/rebind/manual preservation, templates, interleaved contests, stop/cancel and source snapshots")
 end

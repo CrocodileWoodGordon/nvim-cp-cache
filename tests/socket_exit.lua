@@ -1,0 +1,10 @@
+local h = dofile(vim.env.CP_CACHE_PLUGIN .. "/tests/helpers.lua")
+h.finish(function()
+  local cp = require("cp_cache")
+  assert(cp.setup({cache_root=h.root .. "/store/socket-exit",port=0}))
+  local buf = h.source("receiver/socket-exit/main.cpp")
+  assert(cp.receive("testcases",buf))
+  local _, status=cp.receive_status()
+  h.write(assert(vim.env.CP_CACHE_EXIT_REPORT),vim.json.encode({port=status.port}))
+  -- Leave with an active listener: VimLeavePre must release it.
+end)

@@ -57,6 +57,7 @@ function Store:read_bytes(path)
   local data, rerr = uv.fs_read(fd, stat.size, 0)
   local closed, cerr = uv.fs_close(fd)
   if not data then return fail("读取失败", path, rerr) end
+  if #data ~= stat.size then return fail("读取时文件长度变化，请重试", path, #data .. "/" .. stat.size) end
   if not closed then return fail("关闭文件失败", path, cerr) end
   return data
 end
@@ -112,9 +113,10 @@ function Store:locked(key, fn)
   local fd, why = uv.fs_open(path, "wx", 384)
   if not fd then return fail("缓存正在被写入，请重试；死锁可用 CPCache unlock 恢复", path, why) end
   local token = tostring(uv.hrtime())
-  local wrote, werr = uv.fs_write(fd, vim.json.encode({ pid = uv.os_getpid(), token = token }), 0)
+  local owner = vim.json.encode({ pid = uv.os_getpid(), token = token })
+  local wrote, werr = uv.fs_write(fd, owner, 0)
   local closed, cerr = uv.fs_close(fd)
-  if not wrote or not closed then self:unlink(path); return fail("写锁失败", path, werr or cerr) end
+  if wrote ~= #owner or not closed then self:unlink(path); return fail("写锁失败", path, werr or cerr or "short write") end
   local success, result, detail = pcall(fn)
   local released, rerr = self:unlink(path)
   if not success then return nil, "缓存操作失败: " .. tostring(result) end

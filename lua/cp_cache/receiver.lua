@@ -199,7 +199,7 @@ local function create_source(s, task, path, open, done)
       if not fd then report(s, "创建源码失败（可能已被其他程序创建）: " .. tostring(ferr)); done(); return end
       local wrote, werr = uv.fs_write(fd, bytes, 0)
       local closed, cerr = uv.fs_close(fd)
-      if wrote ~= #bytes or not closed then report(s, "源码写入失败: " .. tostring(werr or cerr)); done(); return end
+      if wrote ~= #bytes or not closed then report(s, "源码写入失败 [" .. path .. "]: " .. tostring(werr or cerr or "short write")); done(); return end
     end
     import(s, task, path, function() return alive(s), "接收已停止" end, function(p)
       if p then open_source(s, path, open) end
