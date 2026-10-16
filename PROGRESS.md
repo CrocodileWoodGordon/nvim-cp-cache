@@ -22,3 +22,12 @@
 - 实际 lazy.nvim 首次命令加载与接管、重复 setup、命令补全、接管后 `-bar` 通过。lazy 的首次占位命令本身没有 `-bar`，测试分别验证首次加载与接管后的分隔符；P4 通过 C++ FileType 预加载消除此窗口。
 - 兼容性发现：上游 kill_all 会继续启动排队样例；cleanup 先终止队列再 kill，并调用真实 UI `delete()`。
 - 下一步：P1 身份、锁/revision、原子存储与关联；buffer unload 的自动清理在 P2 接入。
+
+## 2026-10-16：P1 完成
+
+- 文件：`identity.lua`、`store.lua`、`tests/{store,worker,run}.lua`。
+- 实际命令：`python3 tools/verify.py run`，PASS；内含两个真实独立 Neovim 进程竞争同一 revision，恰好一个写入成功，另一个得到冲突/忙锁。
+- 已验证：CF URL 合并/Gym 分离/相似恶意 host、通用 URL query 保留；同名源码隔离、软链规范路径、多个源码共享题目；编号 0、空输入、缺省与空 output、中文/CRLF/末尾换行；跨进程重开持久化。
+- 已验证：独占锁与活 PID 拒绝恢复、死 PID 显式恢复；损坏/未知 schema 不能覆盖；索引损坏/丢失重建；缓存软链拒绝读取/写入/删除；空题保留关联；重新关联不删旧题。
+- 原子写采用同目录独占临时文件、完整写入/fsync/close/rename；每题/关联写操作均加锁，忙时立即提示重试，不阻塞 UI。
+- 下一步：P2 运行、编辑、搜索、只读迁移、缓存导出及命令/API。配置正式入口尚未修改。

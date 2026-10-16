@@ -1,0 +1,82 @@
+return function(h)
+  local I, S = require("cp_cache.identity"), require("cp_cache.store")
+  local root = h.root .. "/store/unit-" .. vim.uv.hrtime()
+  local s = assert(S.new(root))
+  local id, canonical = I.url("HTTPS://CodeForces.Com/contest/1234/problem/A#sample")
+  assert(id == "cf-1234-A" and canonical == "https://codeforces.com/problemset/problem/1234/A")
+  assert(I.url("https://codeforces.com/problemset/problem/1234/A?locale=en") == id)
+  assert(I.url("https://codeforces.com/gym/1234/problem/A") == "cf-gym-1234-A")
+  assert(I.url("https://codeforces.com.example.org/contest/1234/problem/A"):match("^url%-"))
+  assert(I.url("https://X.org/p?a=1#frag") == I.url("HTTPS://x.ORG/p?a=1"))
+  assert(I.url("https://x.org/p?a=1") ~= I.url("https://x.org/p?a=2"))
+  assert(I.url("https://x.org/Path") ~= I.url("https://x.org/path"))
+  assert(not I.url("file:///etc/passwd")); assert(not I.url("https://x.org\n/path"))
+  for _, invalid in ipairs({ "../../x", "cf-1-A/..", "url-aa", "cf-1234-a" }) do assert(not I.valid_id(invalid)) end
+  local _, a = h.source("store/one/main.cpp")
+  local _, b = h.source("store/two/main.cpp")
+  local _, c = h.source("store/空 格 'quote'/A.cpp")
+  assert(I.problem(nil, a) ~= I.problem(nil, b))
+  local link = h.root .. "/fixtures/store/source-link.cpp"
+  if not vim.uv.fs_lstat(link) then assert(vim.uv.fs_symlink(c, link)) end
+  assert(I.source(link) == I.source(c))
+  local parentlink = h.root .. "/fixtures/store/parent-link"
+  if not vim.uv.fs_lstat(parentlink) then assert(vim.uv.fs_symlink(vim.fs.dirname(c), parentlink)) end
+  assert(I.source(parentlink .. "/new.cpp") == vim.fs.dirname(c) .. "/new.cpp")
+  local p = assert(s:save({ id = id, name = "中文 A", tests = {
+    { id = 0, input = "中文\r\n\n", output = "", origin = "manual" },
+    { id = 2, input = "", origin = "received" },
+  } }, 0))
+  assert(p.revision == 1); assert(s:bind(a, id)); assert(s:bind(c, id))
+  assert(not s:binding(b))
+  local tc = assert(s:testcases(a))
+  assert(tc[0].input == "中文\r\n\n" and tc[0].output == "" and tc[2].input == "" and tc[2].output == nil)
+  tc[0].input = "changed outside store"; assert(s:testcases(a)[0].input == "中文\r\n\n")
+  assert(s:for_source(c).id == id)
+  local list = assert(s:list()); assert(#list == 1 and list[1].count == 2)
+  h.write(root .. "/index.json", "broken index")
+  assert(#s:list() == 1)
+  assert(vim.uv.fs_unlink(root .. "/index.json")); assert(#s:list() == 1)
+  local worker = { "nvim", "--headless", "-i", "NONE", "-u", vim.env.CP_CACHE_PLUGIN .. "/tests/minimal_init.lua",
+    "-l", vim.env.CP_CACHE_PLUGIN .. "/tests/worker.lua" }
+  local restart = vim.system(worker, { env = { CP_CACHE_WORKER_ROOT = root } }):wait(15000)
+  assert(restart.code == 0, restart.stderr)
+  local first = vim.system(worker, { env = { CP_CACHE_WORKER_ROOT = root, CP_CACHE_WORKER_REV = "1" } })
+  local second = vim.system(worker, { env = { CP_CACHE_WORKER_ROOT = root, CP_CACHE_WORKER_REV = "1" } })
+  local r1, r2 = first:wait(15000), second:wait(15000)
+  assert((r1.code == 0 and r2.code == 2) or (r1.code == 2 and r2.code == 0), vim.inspect({r1,r2}))
+  local saved, conflict = s:save(p, 1); assert(not saved and conflict:find("冲突"), conflict)
+  assert(s:get(id).revision == 2)
+  local busy, busyerr = s:locked("problem-" .. id, function() return s:save(p, 2) end)
+  assert(not busy and busyerr:find("正在被写入"))
+  s:locked("problem-" .. id, function()
+    local unlocked, err = s:unlock(id); assert(not unlocked and err:find("仍在运行")); return true
+  end)
+  h.write(root .. "/locks/problem-" .. id .. ".lock", vim.json.encode({ pid = 2147483647 }))
+  assert(s:unlock(id))
+  local original = h.read(assert(s:problem_path(id)))
+  h.write(s:problem_path(id), "{corrupt")
+  local bad, err = s:testcases(a); assert(not bad and err:find("JSON 损坏"))
+  assert(not s:save(p, 2)); assert(h.read(s:problem_path(id)) == "{corrupt")
+  local entries, _, errors = s:list(); assert(#entries == 0 and #errors == 1)
+  h.write(s:problem_path(id), original)
+  local corrupt = vim.json.decode(original); corrupt.schema_version = 99
+  h.write(s:problem_path(id), vim.json.encode(corrupt)); assert(not s:get(id)); assert(not s:save(p, 2))
+  h.write(s:problem_path(id), original)
+  local fresh = assert(s:get(id)); fresh.tests = {}; assert(s:save(fresh, fresh.revision))
+  assert(next(s:testcases(a)) == nil and s:binding(a))
+  local secondid = "cf-1234-B"
+  assert(s:save({ id = secondid, name = "B", tests = {} }, 0)); assert(s:bind(a, secondid))
+  assert(s:get(id) and s:for_source(a).id == secondid)
+  assert(#s:bindings(id) == 1)
+  assert(s:forget(a)); assert(not s:binding(a)); assert(s:get(secondid))
+  assert(s:remove(id, s:get(id).revision)); assert(not s:binding(c) and not s:get(id))
+  local out = root .. "/exports/outside"
+  h.write(out, "keep")
+  assert(vim.uv.fs_symlink(out, root .. "/problems/cf-1-Z.json"))
+  assert(not s:list()); assert(not s:save({id="cf-1-Z", name="Z",tests={}}, 0))
+  assert(not s:unlink(root .. "/problems/cf-1-Z.json")); assert(h.read(out) == "keep")
+  local alias = root .. "-link"; assert(vim.uv.fs_symlink(root, alias)); assert(not S.new(alias))
+  local failpath = root .. "/problems/cf-1-D.json"; assert(vim.uv.fs_mkdir(failpath, 448))
+  assert(not s:save({ id="cf-1-D", name="D", tests={} }, 0))
+  print("P1 PASS: identities, bytes, shared bindings, restart, two-process conflicts, corruption, index rebuild, locks, symlink refusal")
+end
