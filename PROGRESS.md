@@ -53,3 +53,15 @@
 - 测试细节：HTTP 客户端使用异步完成回调与完整主循环；`vim.system():wait()` 仅处理 fast events，会阻止 schedule 中的实际 UI/保存回调，不能用于该测试。
 - 浏览器 Competitive Companion 按钮点击未验证，留 P5 人工验收；协议和本机网络已实测。
 - 下一步：P4 接入本机 NvChad、原 CPTest/CPDebug 和 CPP 键位，迁移 demo，然后完整配置验证。
+
+## 2026-10-16：P4 完成
+
+- 文件：`integration/{changes.py,nvim.patch}`、`tests/{theme,full,debug_inputs,gdb,migrate_demo}.lua`、`tools/verify.py`。
+- 配置修改仅三处：CompetiTest lazy spec 依赖本地插件并在 C++ FileType 预加载；`cp.init` 的 CPTest/CPDebug 取样例入口；CPP 新增 `cf/cI`。原编译器工具、GDB adapter/debug 辅助模块、Rust/NvChad 配置未编辑。
+- 接入前已重读所有目标文件；工具逐文件核对备份 SHA256，防止覆盖并发修改。正式副本在 `~/.config/nvim/local/cp-cache.nvim`，正式缓存 `.cache/cp-cache/v1`，无 `/tmp` 依赖。
+- 实际命令：`python3 tools/verify.py baseline`、`install`、`migrate_demo`、`full`、`gdb`，PASS。
+- 完整 NvChad：clangd 初始化、原 CPP/Rust/F9/ds/ch/fm 键位基线一致；CPTest release/sanitize 输出 15/6；真实 Telescope 选择关联；原 CompetiTest editor/convert 和 `-bar`；源码目录快照无新增非源码文件。
+- A17 为启动参数捕获测试：编号 0/2、更新字节、快照隔离、文件输入/交互 PTY/EOF、损坏缓存中止，PASS；明确不是实际 GDB 的证据。
+- A18 是实际 GDB/DAP：从缓存样例 0 编译启动，main 暂停，递归断点，6 层调用栈，locals current=5/rest=0，watch current+rest=5，单步暂停，正常终止，PASS。证据 `.verify/cp-cache/reports/gdb-evidence.json`。本轮升级权限后的进程允许 ptrace，旧交接中的限制没有重复出现。
+- 环境：Neovim 0.12.6、GDB 18.1、GCC 16.2.1、Python 3.14.8、clangd 23.1.1；未下载/升级任何依赖。Rust 测试覆盖原键位，不宣称独立无 Cargo fixture 的 rust-analyzer 初始化成功。
+- 下一步：P5 超时/kill/编译失败/清理边界验收、中文 README/帮助、教程与回退，最终统一检查。

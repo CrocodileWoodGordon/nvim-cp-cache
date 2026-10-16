@@ -1,0 +1,61 @@
+--- a/lua/plugins/competitive.lua
++++ b/lua/plugins/competitive.lua
+@@ -42,9 +42,17 @@
+   },
+   {
+     "xeluxee/competitest.nvim",
+-    dependencies = { "MunifTanjim/nui.nvim" },
+-    cmd = "CompetiTest",
++    dependencies = {
++      "MunifTanjim/nui.nvim",
++      { dir = vim.fn.stdpath("config") .. "/local/cp-cache.nvim", name = "cp-cache.nvim", lazy = true },
++    },
++    ft = "cpp",
++    cmd = { "CompetiTest", "CPCache" },
+     opts = function() return require "configs.competitest" end,
++    config = function(_, opts)
++      require("cp_cache.adapter").setup_dependency(opts)
++      require("cp_cache").setup()
++    end,
+   },
+   {
+     "nvim-treesitter/nvim-treesitter",
+--- a/lua/cp/init.lua
++++ b/lua/cp/init.lua
+@@ -81,7 +81,7 @@
+     return
+   end
+   notify(mode == "sanitize" and "Testing with AddressSanitizer + UBSan" or "Testing with -O2")
+-  vim.cmd "CompetiTest run"
++  require("cp_cache").run(buf, { compile = true })
+ end
+ 
+ function M.run()
+@@ -154,10 +154,12 @@
+     notify("A session is active. Use F5 to continue or <leader>dt to stop.", vim.log.levels.WARN)
+     return
+   end
+-  local testcases = {}
+-  if load_plugin("competitest.nvim", "competitest") then
+-    require("competitest.config").load_buffer_config(buf)
+-    testcases = require("competitest.testcases").buf_get_testcases(buf)
++  local cache = load_plugin("competitest.nvim", "cp_cache")
++  if not cache then return end
++  local testcases, cache_error = cache.get_testcases(buf)
++  if not testcases then
++    notify(cache_error, vim.log.levels.ERROR)
++    return
+   end
+   local choices = {}
+   for number, case in pairs(testcases) do
+--- a/after/ftplugin/cpp.lua
++++ b/after/ftplugin/cpp.lua
+@@ -15,6 +15,8 @@
+ map("<leader>cb", "<cmd>CPBuild debug<CR>", "build debug binary")
+ map("<leader>cR", "<cmd>CPRun<CR>", "compile and run in terminal")
+ map("<leader>c?", "<cmd>CPHelp<CR>", "open guide")
++map("<leader>cf", "<cmd>CPCache find<CR>", "find and share cached samples")
++map("<leader>cI", "<cmd>CPCache info<CR>", "show current cached problem")
+ 
+ -- nvim-treesitter's main branch requires explicitly starting highlighting.
+ pcall(vim.treesitter.start)
