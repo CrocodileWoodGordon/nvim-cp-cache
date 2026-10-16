@@ -31,3 +31,13 @@
 - 已验证：独占锁与活 PID 拒绝恢复、死 PID 显式恢复；损坏/未知 schema 不能覆盖；索引损坏/丢失重建；缓存软链拒绝读取/写入/删除；空题保留关联；重新关联不删旧题。
 - 原子写采用同目录独占临时文件、完整写入/fsync/close/rename；每题/关联写操作均加锁，忙时立即提示重试，不阻塞 UI。
 - 下一步：P2 运行、编辑、搜索、只读迁移、缓存导出及命令/API。配置正式入口尚未修改。
+
+## 2026-10-16：P2 完成
+
+- 文件：`init.lua`、`adapter.lua`、`picker.lua`、`migrate.lua`、`tests/workflow.lua`。
+- 实际命令：`python3 tools/verify.py run`、扩展后的 `python3 tools/verify.py probe`，PASS。
+- 真实 UI 验证：新增/编辑/取消/冲突保存/删除最后一例；共享编辑；选择空输出或无答案；结果面板 R 从 store 取最新样例，Ctrl-R 重载全部；diff、输入查看器、关闭重开、resize；卸载源 buffer 后关闭编辑窗口。
+- release/sanitize 编译比较通过，特殊源码路径包含空格、中文和单引号。源码目录前后完整快照相同。
+- 文本与 msgpack 迁移均逐字节复制，旧文件快照不变；重复迁移拒绝覆盖；缓存内导出保留编号 0、空/缺省 output；`vim.ui.select` 后备搜索与重命名后重新关联通过。Telescope 实际选择在 P4 完整配置验证。
+- 测试发现并修正：不能只设置 headless `lines/columns` 而不调整真实网格，否则 Neovim 0.12.6 在 NUI redraw 中崩溃（GDB 栈为 grid_clear_line/update_screen）。测试保留真实尺寸；生产标题另按显示宽度截断。BufUnload 中的窗口清理安排到下一次主循环。
+- 下一步：P3 实现真实 HTTP Companion 接收；正式配置仍未切换。P2 命令/API 已预留接收入口，接收模块在 P3 交付。

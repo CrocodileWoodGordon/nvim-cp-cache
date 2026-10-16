@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import resource
 from pathlib import Path
 import shutil
 import subprocess
@@ -42,11 +43,14 @@ def prepare():
 
 
 def main():
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     env = prepare()
     suite = sys.argv[1] if len(sys.argv) > 1 else "run"
     init = "lazy_init" if suite == "lazy_probe" else "minimal_init"
     command = ["nvim", "--headless", "-i", "NONE", "-u", str(COPY / ("tests/" + init + ".lua")),
                "-l", str(COPY / ("tests/" + suite + ".lua"))]
+    if "--gdb" in sys.argv[2:]:
+        command = ["gdb", "--batch", "-nx", "-ex", "run", "-ex", "bt", "--args", *command]
     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
     (VERIFY / "reports" / (suite + ".log")).write_bytes(result.stdout)
     print(result.stdout.decode(errors="replace"), end="")
