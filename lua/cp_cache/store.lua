@@ -193,13 +193,14 @@ function Store:for_source(source)
   return problem, why or (not problem and "关联的题目不存在: " .. binding.problem_id or nil), binding
 end
 
-function Store:bind(source, id)
+function Store:bind(source, id, expected)
   local key, path = identity.source_key(source); if not key then return nil, path end
   if not identity.valid_id(id) then return nil, "非法题目 ID" end
   return self:locked("problem-" .. id, function()
     local problem, err = self:get(id); if not problem then return nil, err or "题目不存在" end
     return self:locked("binding-" .. key, function()
-      local _, why = self:binding(path); if why then return nil, why end
+      local old, why = self:binding(path); if why then return nil, why end
+      if expected ~= nil and (old and old.problem_id or false) ~= expected then return nil, "源码关联已变化，请重新选择题目" end
       local binding = { schema_version = 1, source = path, problem_id = id }
       local ok, werr = self:write_json(self.root .. "/bindings/" .. key .. ".json", binding)
       if not ok then return nil, werr end

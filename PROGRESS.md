@@ -41,3 +41,15 @@
 - 文本与 msgpack 迁移均逐字节复制，旧文件快照不变；重复迁移拒绝覆盖；缓存内导出保留编号 0、空/缺省 output；`vim.ui.select` 后备搜索与重命名后重新关联通过。Telescope 实际选择在 P4 完整配置验证。
 - 测试发现并修正：不能只设置 headless `lines/columns` 而不调整真实网格，否则 Neovim 0.12.6 在 NUI redraw 中崩溃（GDB 栈为 grid_clear_line/update_screen）。测试保留真实尺寸；生产标题另按显示宽度截断。BufUnload 中的窗口清理安排到下一次主循环。
 - 下一步：P3 实现真实 HTTP Companion 接收；正式配置仍未切换。P2 命令/API 已预留接收入口，接收模块在 P3 交付。
+
+## 2026-10-16：P3 完成
+
+- 文件：`receiver.lua`、`tests/receiver.lua`、`tests/http_client.py`；关联写入增加 compare-and-set，等待用户选择时不会覆盖并发变更的 binding。
+- 实际命令：`python3 tools/verify.py receiver`，PASS。全部请求通过真实 `127.0.0.1` TCP socket 和 Python 标准库发送，没有仅调用 ingest 来替代 HTTP。
+- 已验证：每 7 字节分片（含中文 UTF-8 被拆分）、无末尾换行 JSON、OPTIONS、错误 JSON/字段、GET、重复 Content-Length、16 KiB 头/8 MiB 体限制、空闲超时；错误请求后服务继续可用。
+- 已验证：切换 buffer 后仍绑定原源码；关闭源 buffer 后取消；换题确认取消/确认；旧题仍在库中；替换 received 保留 manual；相同 payload 不增加 revision/样例。
+- 已验证：端口占用错误、重复 start、幂等 stop、stop 后启动、待处理路径回调停止后不再写文件；新题函数路径、已有源码保持内容并确认、模板原样复制/展开；两个交错比赛去重、残缺批次超时后重发恢复。
+- 对创建目录做完整快照，只有选择创建的 `.cpp`；当前源码目录快照无变化。
+- 测试细节：HTTP 客户端使用异步完成回调与完整主循环；`vim.system():wait()` 仅处理 fast events，会阻止 schedule 中的实际 UI/保存回调，不能用于该测试。
+- 浏览器 Competitive Companion 按钮点击未验证，留 P5 人工验收；协议和本机网络已实测。
+- 下一步：P4 接入本机 NvChad、原 CPTest/CPDebug 和 CPP 键位，迁移 demo，然后完整配置验证。

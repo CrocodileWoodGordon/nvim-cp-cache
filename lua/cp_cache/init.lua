@@ -69,7 +69,7 @@ function M.bind(target, id, done)
     if choice ~= "关联" then if done then done() end; return end
     local valid, verr = M.valid_target(target)
     if not valid then failure(verr); if done then done() end; return end
-    local bound, binderr = store:bind(target.path, id)
+    local bound, binderr = store:bind(target.path, id, previous and previous.problem_id or false)
     if not bound then failure(binderr) else M.notify("已关联 " .. problem_label(p)) end
     if done then done(bound) end
   end
@@ -258,7 +258,8 @@ function M.setup(opts)
   if state.store and state.store.root ~= options.cache_root and package.loaded["cp_cache.receiver"] then M.stop_receive() end
   local store, err = Store.new(options.cache_root); if not store then return failure(err) end
   state.opts, state.store = options, store
-  adapter.install_dispatch(M.dispatch)
+  local installed, why = pcall(adapter.install_dispatch, M.dispatch)
+  if not installed then return failure(tostring(why)) end
   api.nvim_create_user_command("CPCache", function(args) M.command(args.fargs) end, { nargs = "+", bar = true, force = true, complete = complete })
   local group = api.nvim_create_augroup("CPCache", { clear = true })
   api.nvim_create_autocmd("BufUnload", { group = group, callback = function(ev)

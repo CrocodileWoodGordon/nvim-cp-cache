@@ -46,9 +46,13 @@ def main():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     env = prepare()
     suite = sys.argv[1] if len(sys.argv) > 1 else "run"
+    test_file = suite
+    if suite in ("store", "workflow", "receiver"):
+        env["CP_CACHE_SUITE"] = suite
+        test_file = "run"
     init = "lazy_init" if suite == "lazy_probe" else "minimal_init"
     command = ["nvim", "--headless", "-i", "NONE", "-u", str(COPY / ("tests/" + init + ".lua")),
-               "-l", str(COPY / ("tests/" + suite + ".lua"))]
+               "-l", str(COPY / ("tests/" + test_file + ".lua"))]
     if "--gdb" in sys.argv[2:]:
         command = ["gdb", "--batch", "-nx", "-ex", "run", "-ex", "bt", "--args", *command]
     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)
