@@ -92,3 +92,4 @@
 - `python3 tools/verify.py acceptance`：PASS，包含实际编译停止、源码改名清理和既有进程边界项。
 - `python3 tools/verify.py store`：PASS，额外核对源码软链与 `..` 的组合路径，存在文件及未创建文件均与物理父目录一致。
 - 原命令的未命名 CPP 分支现在明确报错并结束分发，不会退回旧存储；在隔离空目录实测无新增文件。非 CPP 原编辑保存仍正常。
+- `python3 tools/verify.py receiver`：增加真实索引目录 EACCES 场景，题目/关联已落盘时只报告明确的部分失败，不再追加整体“已保存”提示；其余真实 HTTP 场景全部 PASS。

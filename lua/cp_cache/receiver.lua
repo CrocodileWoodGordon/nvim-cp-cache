@@ -88,7 +88,8 @@ end
 
 local function reindex(s)
   local _, err = s.store:list()
-  if err then report(s, "题目已保存，但索引更新失败: " .. err) end
+  if err then report(s, "题目已保存，但索引更新失败: " .. err); return nil end
+  return true
 end
 
 local function same_test(a, b) return a.input == b.input and a.output == b.output end
@@ -139,7 +140,7 @@ local function import(s, task, source, valid, done)
       if nerr or (now and now.problem_id or false) ~= (previous and previous.problem_id or false) then report(s, nerr or "题目已保存，但源码关联在等待时变化，请搜索重新关联"); done(); return end
       local bound, binderr = s.store:bind(source, task._id, previous and previous.problem_id or false)
       if not bound then report(s, "题目已保存，但关联失败: " .. binderr); done(); return end
-      reindex(s)
+      if not reindex(s) then done(p); return end
       s.core.notify((unchanged and "重复样例已复用: " or "已保存: ") .. task._id .. " · " .. task.name)
       if task.interactive then s.core.notify("此题声明为交互题；普通批量样例运行不能模拟交互协议", vim.log.levels.WARN) end
       done(p)

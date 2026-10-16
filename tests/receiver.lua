@@ -47,6 +47,18 @@ return function(h)
   local revision = p.revision
   port = start("testcases"); assert(post(port,task("B","duplicate",1,"new\n")).code == 202); vim.wait(20)
   assert(s:get("cf-1234-B").revision == revision)
+  local first_message=#messages+1
+  port=start("testcases")
+  assert(vim.uv.fs_chmod(s.root,320)) -- 0500: problem/binding subdirectories remain writable.
+  local accepted,response=pcall(post,port,task("B","index-failure",1,"index-failure\n"))
+  assert(vim.uv.fs_chmod(s.root,448))
+  assert(accepted and response.code==202,vim.inspect(response))
+  local saw_partial
+  for i=first_message,#messages do
+    assert(not messages[i]:match("^已保存:"),"index write failure reported complete success")
+    if messages[i]:find("索引更新失败") then saw_partial=true end
+  end
+  assert(saw_partial and s:get("cf-1234-B").tests[1].input=="index-failure\n")
   port = start("persistently")
   assert(request(port,{method="OPTIONS",headers=""}).code == 204)
   assert(request(port,{body="{broken"}).code == 400)
