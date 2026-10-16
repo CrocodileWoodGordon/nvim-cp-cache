@@ -1,0 +1,104 @@
+*cp-cache*  集中保存 C++ 竞赛样例                            *cp-cache.nvim*
+
+cp-cache.nvim 复用现有 CompetiTest/nui 界面与宿主编译、GDB 环境。
+源码目录不写样例或题目元数据。中文完整教程见插件 README.md。
+
+前提 ~
+代码按 Neovim 0.10+ API 编写，实测 0.12.6 / Linux / LuaJIT。
+需要已配置的 CompetiTest 和 nui；本机通过 cp_tool.py 编译运行，
+CPDebug 需要原 cp、nvim-dap、dap-ui 与支持原生 DAP 的 GDB。
+Telescope 可选。浏览器导入使用本机 Competitive Companion。
+CompetiTest 内部接口兼容版本见 README；升级后请重跑探针。
+
+命令 ~
+                                                       *:CPCache*
+  :CPCache receive testcases     接收到发起接收的具名 C++ 源码
+  :CPCache receive problem       接收新题，选择源码路径和模板
+  :CPCache receive contest       接收整场比赛，选择源码目录
+  :CPCache receive persistently  持续接收；单题可选样例/完整题目
+  :CPCache receive status        查看接收状态（任何 buffer 均可）
+  :CPCache receive stop          关闭监听、连接、批次和待处理队列
+  :CPCache find                  搜索题号、标题、分组、URL 并关联
+  :CPCache info                  显示题目、源码、缓存文件和样例数
+  :CPCache add                   手工新增；无关联时建立本地题
+  :CPCache edit [N]              编辑样例；缺省编号用 picker
+  :CPCache delete [N]            确认后删除共享样例
+  :CPCache run                   复用 CompetiTest 编译和批量比较
+  :CPCache migrate [files|msgpack] 只读复制当前源码的旧样例
+  :CPCache export files|msgpack   导出到缓存内 revision 快照
+  :CPCache reindex               扫描权威题目文件并重建索引
+  :CPCache forget                仅解除当前源码关联，题目保留
+  :CPCache remove [problem-id]   显示关联数量，确认删除全部样例
+  :CPCache unlock problem-id     仅恢复已退出进程的题目锁
+  :CPCache unlock binding        仅恢复当前源码的关联锁
+
+setup 不自动监听；默认仅绑定 127.0.0.1:27121。
+HTTP 202 只表示排队，Neovim 中的“已保存”才表示落盘完成。
+重新收题会确认更换当前关联，旧题保留。重复导入可替换 received、
+保留 manual，或者追加/取消。同一题关联多份源码时编辑共享。
+
+兼容 CompetiTest ~
+托管 C++ 的 run/run_no_compile/show_ui/add_testcase/edit_testcase/
+delete_testcase/receive 改走缓存，补全和 -bar 保留。
+convert files_to_singlefile 导出 msgpack；singlefile_to_files 导出文本；
+auto 切换上次导出格式。权威 JSON 不变。非 C++ 保持原行为。
+
+界面 ~
+编辑器：Ctrl-S 保存，普通模式 q 取消。空输出需明确选择期待空输出
+还是无标准答案。缓存保留编号 0、空输入、缺省 output、CRLF、末尾换行。
+并发编辑 revision 冲突时不会覆盖，提示重新加载或取消。
+
+结果面板：R 重跑当前，Ctrl-R 重跑全部，K/CTRL-K 停止，d 切换 diff，
+i/a/o/e 查看输入/预期/stdout/stderr，q 关闭。本机空格 cu 可重开。
+重跑读取最新 store；时限和比较方式沿用 CompetiTest 配置。
+
+本机键位（仅 CPP）~
+cr 接收当前样例，cP/cC 新题/比赛，cf 搜索，cI 信息，ca/ce/cx 增改删，
+ct/cs release/sanitize，cd 选择调试输入，cb 编译 debug，cR 交互运行，
+c? 教程。以上均为 leader（空格）后缀，由宿主 ftplugin 设置。
+原 F5/F9/F10/F11、DAP、NvChad ds/ch/fm 和 Rust 键位保留。
+
+存储与恢复 ~
+默认 stdpath('config')/.cache/cp-cache/v1：
+  problems/  权威 JSON metadata/tests/revision
+  bindings/  规范完整源码路径 -> 题目 ID
+  index.json 可重建摘要，每次搜索重新扫描
+  locks/     带 PID 的独占写锁
+  exports/   显式导出的 revision 快照，删除题目后仍保留
+
+源码移动/重命名后，在新路径执行 find 选择旧题；不凭 basename 猜测。
+forget 不删题；remove 不删源码、旧 testcases 或 exports。没有自动 TTL。
+损坏 JSON/未知 schema 拒绝覆盖；索引丢失可以 reindex。
+缓存根和路径中不接受符号链接，清理不会沿链接越界。
+锁忙时重试；unlock 只接受 PID 确认不存在，不按时间抢活锁。
+
+本机 CPDebug 0 读取与测试相同的 store，生成独立输入快照，保留输入
+文件/交互 PTY/EOF。快照位于配置内 .runtime/inputs/，构建在 .build/。
+
+Lua API ~
+  require('cp_cache').setup(opts)
+  get_testcases(bufnr)           新数字键表；无关联 {}；错误 nil, error
+  receive(mode, bufnr)           testcases/problem/contest/persistently
+  stop_receive() / receive_status()
+  run(bufnr, opts)               compile、only_show、numbers
+  add(bufnr) / edit(bufnr, N) / delete(bufnr, N)
+  pick(bufnr) / migrate(bufnr) / info(bufnr)
+
+配置：cache_root、port（默认 27121）、picker='select' 强制后备列表。
+可选 header_limit=16384、body_limit=8388608、idle_timeout_ms=10000、
+batch_timeout_ms=60000。题目时限/内存 metadata 不会覆盖运行配置。
+所有异步操作捕获源 buffer/path；关闭或改名后取消。
+
+回退 ~
+先停止接收和调试，退出 Neovim。本机本次备份：
+  ~/.config/nvim/backups/cp-cache-2026-10-16/
+在开发仓库运行 python3 tools/verify.py rollback --check 后再 rollback，
+仅恢复本次四个入口/教程文件；遇到用户并发修改拒绝覆盖。
+缓存、插件副本、旧样例保留。不要恢复更早的 before-cp 备份。
+
+验收范围 ~
+真实 CompetiTest editor/runner、HTTP、Telescope、PTY resize、GDB 断点/
+栈/locals/watch/单步均有独立验收。浏览器扩展按钮点击留人工验收。
+完整矩阵与复现命令见 ACCEPTANCE.md 和 PROGRESS.md。
+
+ vim:tw=78:ts=2:sw=2:et:ft=help:norl:

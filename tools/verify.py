@@ -40,6 +40,8 @@ def prepare():
     for name in ("lua", "plugin", "doc", "tests", "integration"):
         if (REPO / name).exists():
             shutil.copytree(REPO / name, COPY / name, dirs_exist_ok=True)
+    for source in REPO.glob("*.md"):
+        shutil.copyfile(source, COPY / source.name)
     return {**os.environ, "XDG_DATA_HOME": str(VERIFY / "data"),
             "XDG_STATE_HOME": str(VERIFY / "state"), "XDG_CACHE_HOME": str(VERIFY / "cache"),
             "TMPDIR": str(VERIFY / "tmp"), "NVIM_CP_OFFLINE": "1", "PYTHONDONTWRITEBYTECODE": "1",
@@ -51,6 +53,31 @@ def main():
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     env = prepare()
     suite = sys.argv[1] if len(sys.argv) > 1 else "run"
+    if suite == "rollback":
+        original = json.loads((BACKUP / "manifest.json").read_text())
+        deployed = json.loads((BACKUP / "installed.json").read_text())
+        changes = {}
+        for name, digest in original.items():
+            data = (BACKUP / name).read_bytes()
+            if hashlib.sha256(data).hexdigest() != digest:
+                raise RuntimeError("Backup checksum mismatch: " + name)
+            current = (CONFIG / name).read_bytes()
+            if hashlib.sha256(current).hexdigest() not in (digest, deployed.get(name)):
+                raise RuntimeError("User changed file; rollback refused: " + name)
+            changes[name] = (current, data)
+        if "--check" in sys.argv[2:]:
+            print("Rollback check PASS: four backup/current checksums match; no entry files changed")
+            return 0
+        for name, (reviewed, data) in changes.items():
+            target = CONFIG / name
+            if target.read_bytes() != reviewed:
+                raise RuntimeError("Concurrent user change; rollback refused: " + name)
+            temporary = target.with_name(target.name + ".cp-cache-rollback")
+            temporary.write_bytes(data)
+            temporary.chmod(target.stat().st_mode)
+            temporary.replace(target)
+        print("Restored four task entry files; plugin/cache/old samples retained")
+        return 0
     if suite == "install":
         updater = runpy.run_path(str(REPO / "integration/changes.py"))["update"]
         manifest = json.loads((BACKUP / "manifest.json").read_text())
@@ -99,6 +126,9 @@ def main():
                    "-l", str(COPY / ("tests/" + test_file + ".lua"))]
     if suite == "resize":
         command = ["python3", str(COPY / "tests/resize_tui.py")]
+    if suite == "doc_check":
+        command = ["nvim", "--headless", "-i", "NONE", "-u", str(COPY / "tests/minimal_init.lua"),
+                   "-c", "helptags " + str(COPY / "doc"), "-c", "help cp-cache", "-c", "qa!"]
     if "--gdb" in sys.argv[2:]:
         command = ["gdb", "--batch", "-nx", "-ex", "run", "-ex", "bt", "--args", *command]
     result = subprocess.run(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=180)

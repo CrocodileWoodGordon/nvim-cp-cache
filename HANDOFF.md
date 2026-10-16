@@ -2,17 +2,20 @@
 
 ## 当前状态
 
-截至 2026-10-16，本任务轮次只做了只读调查并生成 `/tmp/nvim-cp-cache/` 中的任务文档。**缓存插件还没有编写，当前样例仍保存在源码旁的 `testcases/`。** 不要把文档中的未来命令当成已经安装的功能。
+截至 2026-10-16，P0–P5 的插件实现、NvChad 接入和核心验收已完成，并在当前仓库分步提交。
+开发目录 `/home/gordon/Coding/nvim-cp-cache/`；运行副本 `~/.config/nvim/local/cp-cache.nvim/`；
+正式缓存 `~/.config/nvim/.cache/cp-cache/v1/`。demo 旧样例已只读复制到缓存，旧文件保留。
+最新结果以 ACCEPTANCE.md / PROGRESS.md 为准；下文调查结论保留供维护适配层使用。
 
 用户原目标是保留已有功能，增加 VSCode/CPH 风格的 C++ 调试与样例工作流。后续要求样例不进源码目录；如需自写插件，先确定目标、技术栈、规划和交接，留给其他 AI 实现。用户进一步指定 AGENTS 等文档放 `/tmp`。
 
-已选择持久题目缓存方案，暂名 cp-cache.nvim。实施路径与目标见 README；详细契约见 DESIGN。
+已实现持久题目缓存 cp-cache.nvim。使用与环境前提见 README；详细契约见 DESIGN。
 
 ## 真实环境
 
 - 用户目录 `/home/gordon`，Arch Linux，zsh。
 - 配置 `/home/gordon/.config/nvim`，实际是 **NvChad + lazy.nvim**，不是 LazyVim。
-- 上轮检测：Neovim 0.12.6、GDB 18.1、GCC 16.2.1，已有 Python、clangd。实施时再检查需要的可执行文件。
+- 本轮核对：Neovim 0.12.6、GDB 18.1、GCC 16.2.1、Python 3.14.8、clangd 23.1.1。
 - 插件根目录已经是 `.config/nvim/.plugins/`，不是默认 data/lazy；旧插件与原安装目录并存，不要清理旧目录。
 - `lazy-lock.json` 当前包含下列依赖，目录实际存在。上轮文档“六个插件尚未安装”的段落已经过时。
 - `.treesitter/parser/cpp.so` 在本轮检查时不存在；不要因此重装整套插件。行末变量渲染的 parser 状态应单独核验。
@@ -30,13 +33,13 @@
 
 以下路径均相对于 `/home/gordon/.config/nvim/`。
 
-| 文件 | 现有职责与预计改动 |
+| 文件 | 现有职责与本轮改动 |
 | --- | --- |
-| `lua/plugins/competitive.lua` | lazy 插件定义、DAP 全局键位；新增本地 cp-cache 依赖和 setup 顺序 |
+| `lua/plugins/competitive.lua` | 已新增本地 cp-cache 依赖、CPP FileType 触发和 setup 顺序；原 DAP 全局键位保留 |
 | `lua/configs/competitest.lua` | 编译/运行调用 Python 工具；当前 `testcases_directory="testcases"`；保留运行配置 |
-| `lua/cp/init.lua` | build/test/debug/run；debug 目前用 `buf_get_testcases` 取样例；改成统一缓存 API |
+| `lua/cp/init.lua` | CPTest/CPDebug 已改成统一 cp_cache；build/run 与 GDB 其他输入分支保留 |
 | `plugin/cp.lua` | CPHelp、CPHealth、CPDebug、CPBuild、CPRun、CPTest 命令；保持可用 |
-| `after/ftplugin/cpp.lua` | C++ buffer 键位；接入缓存并加搜索键，不覆盖 Rust 的 buffer 映射 |
+| `after/ftplugin/cpp.lua` | 已保留原 CPP 映射并加 cf/cI；Rust 映射基线验证一致 |
 | `lua/configs/dap.lua`、`lua/cp/debug.lua` | 现有 GDB 启动和辅助查询；原则上无需改动 |
 | `scripts/cp_tool.py` | GNU++20、release/debug/sanitize、源码路径哈希构建目录；直接复用 |
 | `scripts/check_cp.py` | 旧编译/GDB 验证，读取示例的固定 `testcases/main.N.in/out` 路径 |
@@ -44,7 +47,7 @@
 | `examples/cp-demo/main.cpp` | 递归求和例子；两个样例输出分别为 15、6 |
 | `examples/cp-demo/testcases/` | 已有样例，迁移时只复制，保留原文件供旧测试/回退使用 |
 | `templates/contest.cpp` | 新题模板，继续使用 |
-| `docs/competitive-programming.md` | 现有中文教程；接入完成后更新存储、键位与安装状态 |
+| `docs/competitive-programming.md` | 已更新中文教程：集中缓存、键位、环境前提、迁移/回退与实际验收 |
 
 编译产物在 `.build/<源码路径哈希>/`。调试输入快照在 `.runtime/inputs/`；这些都已经不在用户源码目录内，不必重设计。
 
@@ -68,7 +71,7 @@
 - 同模块 `picker(bufnr, tctbl, title, callback, restore_winid)`。
 - `require('competitest.commands').command(arguments)`：可保留为非托管语言的原命令入口。
 
-这些模块导出接口需要通过 P0 用真实版本验证；它们不等价于上游稳定 API 承诺。
+这些模块导出接口已通过 P0 与后续真实 UI/TUI 验证；它们不等价于上游稳定 API 承诺。
 
 ## 原有操作必须保留
 
@@ -82,10 +85,17 @@ F5/F9/F10/F11 与 `<leader>d…` 的调试键继续工作。重点保留 NvChad 
 
 `.verify/verification-results.json` 是前一轮结果，不能当成本插件的新测试：旧编译测试通过，GDB DAP 握手/断点登记通过，真实断点暂停被 sandbox 的 ptrace 限制阻挡；其中“插件未安装”项现已过时。
 
-先前 shell 网络受限，不代表用户当前终端也不能联网。优先利用现有依赖，避免无关下载。真实 GDB 调试被限制时，仍能验证传入 DAP 的缓存样例快照，再把断点/栈/变量列为本机人工检查项。
+先前 ptrace 限制在本轮批准的测试进程中未重现。真实 GDB/DAP 已通过缓存样例 0 的
+main 暂停、递归断点、6 层栈、locals、watch 和单步验证；A17 的参数捕获仍单独标记。
+本轮未安装/升级依赖。浏览器按钮点击仍没有可用的交互入口，留人工验收。
 
 完整 NvChad 的无界面测试可能需要触发 UIEnter 才会加载 LSP，空 buffer 还可能触发 dashboard。先用 `-u NONE -i NONE` 加载指定 runtimepath 测最小集成，再用具名 C++ 测完整配置。
 
 ## 下一步
 
-从 PLAN 的 P0 开始。实现前给相关配置建立本轮备份；不要恢复旧 `backups/2026-10-14-before-cp/`，那会撤掉已完成的调试配置。完成集成后再更新教程中失效的安装状态和样例位置说明。
+维护时先读 README、ACCEPTANCE 和 PROGRESS，再改代码。本次配置备份在
+`~/.config/nvim/backups/cp-cache-2026-10-16/`；`tools/verify.py install/rollback` 均检查哈希，
+不覆盖用户并发修改。不要恢复 `2026-10-14-before-cp`，那会撤掉现有 GDB 环境。
+
+剩余人工项是实际浏览器扩展按钮导入。其余核心项已有真实依赖、真实 HTTP、真实 TUI resize
+和真实 GDB 证据。C++ Treesitter 行末变量渲染、Cargo 项目内 Rust LSP 不属于本轮已验证范围。

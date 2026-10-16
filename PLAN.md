@@ -1,6 +1,7 @@
 # 分阶段实现与验收
 
-当前所有开发阶段均为**待开始**。这份计划不能作为测试通过记录。
+P0–P5 的实现与核心验收已完成。以下保留原验收要求；实际命令、结果和人工项见
+PROGRESS.md、ACCEPTANCE.md，不以计划文字代替测试证据。
 
 ## P0：验证依赖接口与建立隔离测试
 
@@ -94,7 +95,7 @@
 
 ## 隔离运行命令
 
-先建立下面的目录；这是未来执行者使用的示例，本轮没有运行这些开发测试。
+以下是隔离环境约束；现有 `python3 tools/verify.py` 已自动准备这些目录和变量，并复制当前仓库的测试副本。
 
 ```sh
 mkdir -p /home/gordon/.config/nvim/.verify/cp-cache/{data,state,cache,tmp,fixtures,store}

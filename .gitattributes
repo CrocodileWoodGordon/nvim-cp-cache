@@ -1,0 +1,2 @@
+# Unified patches represent empty context lines with a required single space.
+integration/nvim.patch -whitespace

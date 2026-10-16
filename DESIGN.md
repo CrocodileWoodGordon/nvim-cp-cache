@@ -1,6 +1,7 @@
 # cp-cache.nvim 首版设计
 
-本文中的 API、目录和命令是**待实现契约**。它们目前尚不可用。
+本文保留首版设计契约，现已实现；实际验证与限制见 ACCEPTANCE.md。
+用户后续指定在当前 Git 仓库开发，运行副本才放到配置目录；此要求优先于原任务包路径。
 
 ## 1. 范围与数据流
 
@@ -22,7 +23,8 @@ Competitive Companion ──> receiver ──> store ──> 题目文件 + 源�
 
 ## 2. 模块与依赖方向
 
-未来插件源码根目录为 `/home/gordon/.config/nvim/local/cp-cache.nvim/`。
+开发源码根目录为当前仓库 `/home/gordon/Coding/nvim-cp-cache/`；本机运行副本为
+`/home/gordon/.config/nvim/local/cp-cache.nvim/`。
 
 ```text
 lua/cp_cache/

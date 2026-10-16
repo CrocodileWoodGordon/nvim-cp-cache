@@ -59,3 +59,204 @@
  
  -- nvim-treesitter's main branch requires explicitly starting highlighting.
  pcall(vim.treesitter.start)
+--- a/docs/competitive-programming.md
++++ b/docs/competitive-programming.md
+@@ -4,37 +4,27 @@
+ 原有主题、透明背景、补全、文件树、Telescope、Rustaceanvim、Markdown 和缩进设置继续保留。
+ `<leader>` 是空格；例如 `<leader>ct` 表示依次按 **空格、c、t**。
+ 
+-## 安装状态与首次启动
+-
+-2026-10-14 配置时已检测到 Neovim 0.12.6、GDB 18.1、GCC 16.2.1、Python、clangd。
+-已完成配置、示例、安装脚本和本地验证。当前执行环境的 GitHub 代理不可达，直连 DNS 也不可用，
+-因此 **六个新增插件尚未下载完成**，不能把“配置已写好”当成“调试 UI 已安装成功”。
+-
+-在你能访问 GitHub 的本机终端执行：
+-
+-```sh
+-python ~/.config/nvim/scripts/install_cp_plugins.py
+-```
+-
+-脚本只安装六个新增插件，保留旧插件的锁定版本。全部成功后重启 Neovim，再执行：
+-
+-```vim
+-:TSInstall cpp
+-:CPHealth
+-```
+-
+-C++ Treesitter parser 用于语法高亮和源码行末变量值；即使 parser 未安装，DAP 的变量、调用栈和 Watches 面板仍可使用。
+-`:TSInstall cpp` 完成后重新打开 C++ 文件。解析器放在配置目录的 `.treesitter/`。
+-`CPHealth` 显示依赖是否存在；它不是一次完整调试测试。
+-
+-所有插件已改用 `~/.config/nvim/.plugins/`，原有 29 个插件是从原安装目录复制过来的，版本没有升级。
+-以后仍可用 `:Lazy` 管理插件。旧的 `~/.local/share/nvim/lazy/` 没有改动。
+-安装脚本不修改系统、浏览器或 shell 配置。浏览器扩展需要你自行安装。
+-
+-本次已验证：Neovim 启动、Lua 语法、clangd 连接、原有快捷键、异步编译、终端输入输出、
+-三种编译模式下的两个样例、带空格/中文/引号的路径、GDB DAP 握手与断点注册。
+-原有插件的 6159 个文件与原目录逐字节一致，旧 `lazy-lock.json` 也保持原样。
+-新增插件 UI、浏览器接收、真实断点暂停及单步仍待依赖安装和本机验收。
++## 当前状态与环境前提
++
++2026-10-16 已接入本地 **cp-cache.nvim**，集中保存样例并与 CompetiTest、
++cp_tool.py、现有 GDB/DAP 共用。当前依赖已安装；未执行全量升级或系统包安装。
++实测 Neovim 0.12.6、GDB 18.1、GCC 16.2.1、Python 3.14.8、clangd 23.1.1。
++
++前提：已有配置内的 CompetiTest/nui、cp_tool.py 和 DAP 环境；GDB 需支持
++原生 DAP 且允许 ptrace。浏览器导入需同机 Competitive Companion 与空闲端口 27121。
++插件代码按 Neovim 0.10+ API 编写，但完整 NvChad 仅验收上述版本。
++
++源码在 `~/.config/nvim/local/cp-cache.nvim/`，缓存默认
++`~/.config/nvim/.cache/cp-cache/v1/`，重启后保留；不依赖 `/tmp`。
++完整环境前提、命令、迁移与回退见 [插件 README](../local/cp-cache.nvim/README.md)，
++验收矩阵见 [ACCEPTANCE.md](../local/cp-cache.nvim/ACCEPTANCE.md)。
++
++C++ Treesitter parser 用于高亮和行末变量值；本轮没有安装或验收它。
++Scopes/Stacks/Watches 不依赖 parser。可运行 `:CPHealth` 查看环境，不能将其当作调试验收。
++
++已实测完整 NvChad/clangd、原快捷键、真实样例 UI/Telescope、三种编译模式、
++本机 HTTP 接收、真实 PTY resize，以及 GDB 暂停、递归栈、locals、watch 和单步。
++浏览器扩展按钮点击仍需本机人工验收；Rust 验证覆盖原键位。
+ 
+ ## 五分钟体验
+ 
+@@ -56,14 +46,14 @@
+ ## Codeforces 样例导入：与 CPH 相同的浏览器工作流
+ 
+ 安装 [Competitive Companion](https://github.com/jmerle/competitive-companion) 浏览器扩展。
+-CompetiTest 使用端口 **27121**。如果点击扩展没有反应，在扩展设置的 **Custom ports** 中加入 `27121`。
++cp-cache 接收器使用端口 **27121**。如果点击扩展没有反应，在扩展设置的 **Custom ports** 中加入 `27121`。
+ 浏览器和 Neovim 应运行在同一台机器；远程 SSH 场景需要另行转发这个端口。
+ 
+ 已有 `A.cpp` 时：
+ 
+ 1. 在 Neovim 打开 `A.cpp`，按 **空格 cr** 开始接收一次样例。
+ 2. 在浏览器打开 Codeforces 题目页，等待题面显示完毕，点击扩展绿色 **+**。
+-3. 样例会写入源码旁边的 `testcases/`。按 **空格 ct** 编译并比较全部样例。
++3. 样例写入配置内的集中缓存，源码旁不生成样例或题目信息文件。看到“已保存”后按 **空格 ct** 比较。
+ 
+ 也支持接收一道题并创建源码模板，或接收整场比赛：
+ 
+@@ -79,7 +69,34 @@
+ 这里通过浏览器已打开的题面提取样例，**没有配置直接粘贴 Codeforces URL 抓取题面的命令**。
+ 
+ 只在主动执行接收命令时开启接收，不会在每次打开 Neovim 时抢占端口。
+-已有样例遇到重复导入时，插件会询问替换方式。
++已有样例遇到重复导入时，插件会询问“替换已接收（保留手工）/追加/取消”。
++同题可关联多份解法，编辑共享样例时会显示题目。等待接收时切换窗口不会改变来源；
++关闭或重命名发起操作的 buffer 后取消，不能误关联到新的焦点窗口。
++
++## 缓存搜索、关联、迁移与清理
++
++**空格 cf** / `:CPCache find` 按题号、标题、分组或 URL 搜索并关联当前源码；
++**空格 cI** / `:CPCache info` 查看当前题目、源码路径、缓存文件和样例数。
++源码改名或移动后，在新路径搜索原题重新关联。插件不按 `main.cpp` 这种 basename 猜题。
++同一 main.cpp 改收新题会确认切换，旧题仍可搜索。
++
++```vim
++:CPCache migrate
++:CPCache export files
++:CPCache export msgpack
++:CPCache forget
++:CPCache remove
++:CPCache reindex
++```
++
++migrate 只读复制当前源码的旧文本/msgpack，回读校验成功后关联；旧文件保留。
++已有绑定（即使零样例）不会覆盖。forget 仅解绑；remove 显示关联数量并确认删除
++整个题目，包括手工样例；源码、旧 testcases 和导出快照都保留。没有自动 TTL 删除。
++损坏 JSON 报错并拒绝覆盖；只有索引可重建。缓存路径中的符号链接被拒绝。
++
++托管 C++ 的旧 CompetiTest 命令均已接管。convert 改为缓存内格式导出，
++files_to_singlefile 导出 msgpack，singlefile_to_files 导出文本，auto 切换格式。
++权威 JSON 不变；非 C++ 保持原 CompetiTest 语义。
+ 
+ ## 样例、编译、测试
+ 
+@@ -91,7 +108,8 @@
+ | 空格 cs | 使用 AddressSanitizer + UBSan 编译并测试全部样例 |
+ | 空格 cr | 接收当前题目的样例 |
+ | 空格 cP / cC | 接收新题 / 比赛 |
+-| 空格 ca / ce / cx | 新增 / 编辑 / 删除样例 |
++| 空格 ca / ce / cx | 新增 / 编辑 / 删除共享样例 |
++| 空格 cf / cI | 搜索重新关联 / 当前题目信息 |
+ | 空格 cu | 重新显示上一次测试结果 |
+ | 空格 cd | 编译调试版，选择输入并开始 GDB 调试 |
+ | 空格 cb | 只编译调试版；编译错误进入 quickfix |
+@@ -102,25 +120,23 @@
+ 测试结果面板：`d` 切换输出差异，`i` 看输入，`a` 看预期输出，`o` 看实际输出，`e` 看 stderr，
+ `R` 重跑当前样例，`Ctrl-R` 重跑全部，`q` 关闭。
+ 
+-样例文件名示例：
++样例保存在配置内缓存：
+ 
+ ```text
+-contest/
+-  A.cpp
+-  B.cpp
+-  testcases/
+-    A.1.in
+-    A.1.out
+-    A.2.in
+-    A.2.out
+-    B.1.in
+-    B.1.out
+-```
++源码目录/                 ~/.config/nvim/.cache/cp-cache/v1/
++  A.cpp                     problems/<题目ID>.json
++  B.cpp                     bindings/<源码路径hash>.json
++                            index.json
++                            exports/<题目ID>/
++```
++
++空输入、编号 0、CRLF 与末尾换行逐字节保留。空白输出保存时可选期待空输出或无标准答案。
++编辑出现 revision 冲突时，重新加载或取消；不会覆盖其他实例的修改。
+ 
+ 默认每例限时 3000ms、串行执行，按 token 比较，忽略多余空白。
+ 这是本地样例检查，不能代替评测站的隐藏测试、特殊判题器或交互器。
+ 浮点容差/多解题需要自定义 `output_compare_method`。
+-可在 `lua/configs/competitest.lua` 修改限时、比较方式和样例文件名。
++可在 `lua/configs/competitest.lua` 修改限时和比较方式；样例文件名设置仅用于旧数据迁移/非 C++ 原存储。
+ 
+ 编译产物位于 `~/.config/nvim/.build/<源码路径哈希>/`，不会覆盖源码旁已有的可执行文件。
+ 测试按源码路径独立记住 release/sanitize 模式；`CompetiTest run` 使用该文件上一次选定的模式。
+@@ -180,6 +196,7 @@
+ F5 / 空格 cd 提供三类输入：选已导入样例、选任意输入文件、交互终端。也可选择无输入（EOF）。
+ `:CPDebug 2` 直接用第 2 号样例。编号以样例面板实际编号为准，手工新增可能从 0 开始。
+ 选交互终端后，到对应终端窗口按 `i` 输入数据；`Ctrl-\` 再 `Ctrl-N` 回普通模式。
++样例和测试共用 store；启动时在 `.runtime/inputs/` 创建输入快照，后续编辑不改变该会话。
+ 普通样例模式的程序输出出现在 REPL，**REPL 的输入是 GDB 命令，不是程序的 cin**。
+ 
+ Stacks 是调用栈（函数、源码位置）；原始栈内存是另一项功能。
+@@ -211,11 +228,11 @@
+ `catch throw` 可用于检查 C++ 异常。SIGSEGV 等信号暂停后可以查看栈、变量和内存。
+ 图形化面板支持的功能取决于 GDB DAP 能力；没有宣称与 VSCode 的 cppdbg 每项功能完全等价。
+ 
+-空格 da 的 Attach 需要系统允许 ptrace。此次执行沙箱禁止 ptrace，
+-因此无法在这里完成真实断点、单步和 UI 的端到端验证；不要为这个沙箱限制全局关闭系统安全设置。
+-在你本机正常终端中用上面的递归示例验收即可。
+-
+-可重复运行编译/GDB 自检：
++空格 da 的 Attach 需要系统允许 ptrace。本轮真实 GDB/DAP 已通过缓存样例 0 验证：
++main 暂停、递归断点、6 层调用栈、current=5/rest=0、watch 表达式结果 5 和单步。
++证据在 `.verify/cp-cache/reports/gdb-evidence.json`。浏览器点击仍需人工验收。
++
++旧环境编译/GDB 自检仍可运行（不代表 cp-cache 新验收）：
+ 
+ ```sh
+ python -B ~/.config/nvim/scripts/check_cp.py
+@@ -241,9 +258,11 @@
+ | `scripts/cp_tool.py` | 编译器选项、可执行文件隔离 |
+ | `templates/contest.cpp` | 接收题目时使用的源码模板 |
+ 
+-原配置备份在 `backups/2026-10-14-before-cp/`。回退时恢复备份中的原文件，
+-再移走新增的 `lua/plugins/competitive.lua`、`plugin/cp.lua` 和 `after/ftplugin/cpp.lua` 即可停止加载新功能。
+-`.plugins/` 的副本可以保留；恢复原 `init.lua` 和 `configs/lazy.lua` 后会重新使用旧插件目录。
++本次 cp-cache 备份在 `backups/cp-cache-2026-10-16/`，只包含本次四个入口/教程文件。
++停止接收/调试并退出 Neovim，在开发仓库执行 `python3 tools/verify.py rollback --check`，
++再执行 `python3 tools/verify.py rollback`。工具校验备份和部署哈希，拒绝覆盖后续用户修改。
++缓存、旧样例、插件副本和 GDB/编译器设施保留。不要恢复 2026-10-14-before-cp 做本次回退。
++手动回退也只恢复本次备份中的同名四个文件。
+ 
+ ## 参考
+ 

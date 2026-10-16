@@ -93,3 +93,13 @@
 - `python3 tools/verify.py store`：PASS，额外核对源码软链与 `..` 的组合路径，存在文件及未创建文件均与物理父目录一致。
 - 原命令的未命名 CPP 分支现在明确报错并结束分发，不会退回旧存储；在隔离空目录实测无新增文件。非 CPP 原编辑保存仍正常。
 - `python3 tools/verify.py receiver`：增加真实索引目录 EACCES 场景，题目/关联已落盘时只报告明确的部分失败，不再追加整体“已保存”提示；其余真实 HTTP 场景全部 PASS。
+
+## 2026-10-16：P5 完成与最终交付
+
+- 完成文件：中文 `README.md`、`ACCEPTANCE.md`、`doc/cp-cache.txt`/tags、更新后的 DESIGN/HANDOFF/PLAN，以及可复现配置补丁、哈希保护的 install/rollback 工具。
+- 当前代码最终聚合命令 `python3 tools/verify.py run`：P1/P2/P3/P5 全部 PASS。`probe`、`lazy_probe`、`resize`、`full`、`gdb`、`doc_check`、`rollback --check` 均实际执行并 PASS。
+- 真实依赖覆盖：CompetiTest runner/editor/picker、TUI 两次实际 resize、Telescope、完整 NvChad/clangd、GDB 真实断点/递归栈/locals/watch/单步。A17 的 dap.run 捕获与 A18 的真实调试分开记录。
+- 核心 A01–A22 在验收矩阵声明的范围内通过；无遗留核心 FAIL。浏览器按钮点击与外网题面为 BLOCKED（没有浏览器扩展交互入口），README/ACCEPTANCE 提供人工步骤；CPP parser 行末渲染与 Cargo 项目 Rust LSP 未验收。既有 Rust 工具链缺 rust-analyzer 的基线情况未作无关修复。
+- 正式运行副本 `~/.config/nvim/local/cp-cache.nvim`；正式缓存 `~/.config/nvim/.cache/cp-cache/v1`；本轮备份 `~/.config/nvim/backups/cp-cache-2026-10-16`。原 demo/testcases 保留，源码目录快照通过，未升级/修改第三方插件。
+- README 与 Neovim 原教程均说明环境前提、重启使用、浏览器导入、共享编辑、源文件改名后 find 重新关联、测试/调试、迁移导出、清理和本次回退。配置入口已部署，运行副本与仓库最终代码一致。
+- 所有实现和文档均按小步提交 Git。后续无需继续实现 P0–P5；人工浏览器验收按 ACCEPTANCE 执行。
